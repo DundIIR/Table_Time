@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+* {
+	user-select: none;
+}
+
+.card-column {
+	width: 180px;
+	min-height: 400px;
+}
+
+.droppable-zone {
+	min-height: 60px;
+	border: 2px dashed #d1d5db;
+}
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
