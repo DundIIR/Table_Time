@@ -1,18 +1,16 @@
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import type { Card } from '../types/card'
+import { useDraggable } from '@dnd-kit/core'
+// import { useSortable } from '@dnd-kit/sortable'
 
-type SortableCardProps = {
-	card: Card
-}
-
-export default function SortableCard({ card }: SortableCardProps) {
-	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id })
+export default function SortableCard(props: { id: string; word?: string; overlay?: boolean }) {
+	const { id, word, overlay } = props
+	const { attributes, listeners, setNodeRef, transform } = useDraggable({ id })
 
 	const style = {
-		transform: CSS.Transform.toString(transform),
-		transition,
-		opacity: isDragging ? 0.5 : 1,
+		transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+		cursor: overlay ? 'grabbing' : 'grab',
+		scale: overlay ? '1.03' : undefined,
+		opacity: overlay ? 0.9 : 1,
+		touchAction: 'none',
 	}
 
 	return (
@@ -21,8 +19,8 @@ export default function SortableCard({ card }: SortableCardProps) {
 			style={style}
 			{...attributes}
 			{...listeners}
-			className="bg-white p-3 rounded shadow cursor-move hover:bg-blue-50 transition-colors">
-			{card.word}
+			className="min-w-40 h-22 p-2 bg-blue-500 rounded-2xl text-white font-bold  flex justify-center items-center uppercase tracking-wide shadow">
+			{word}
 		</div>
 	)
 }

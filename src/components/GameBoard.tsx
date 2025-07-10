@@ -1,150 +1,89 @@
-import { DndContext, type DragEndEvent, closestCorners, type UniqueIdentifier } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { Card } from '../types/card'
-import SortableCard from './SortableCard'
-import DropZone from './DropZone'
+import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { useState } from 'react'
+import { SortableContainer } from './SortableContainer'
+import SortableCard from './SortableCard'
 
-type GameBoardProps = {
-	adjectives: Card[]
-	matches: Card[]
-	nouns: Card[]
-	onDragEnd: (event: DragEndEvent) => void
+interface GameBoardProps {
+	nouns: string[]
+	adjectives: string[]
+	containerItems: Record<string, string | null>
+	setContainerItems: React.Dispatch<React.SetStateAction<Record<string, string | null>>>
 }
 
-import { Droppable } from './drop'
-import { Draggable } from './drag'
+export default function GameBoard({ nouns, adjectives, containerItems, setContainerItems }: GameBoardProps) {
+	const [activeId, setActiveId] = useState<string | null>(null) // Элемент который сейчас перемещается (активный item)
 
-export default function GameBoard({ adjectives, matches, nouns, onDragEnd }: GameBoardProps) {
-	// const [active, setActive] = useState<DragEvent | null>(null)
+	const [availableItems, setAvailableItems] = useState<string[]>(adjectives) // Массив элементов в главном контейнере
 
-	const droppableContainers: UniqueIdentifier[] = ['A', 'B', 'C', 'D', 'E']
-	const draggableItems: UniqueIdentifier[] = ['1', '2', '3', '4', '5']
+	function handleDragStart(event: DragStartEvent) {
+		setActiveId(event.active.id as string)
 
-	// Состояние для хранения информации о том, куда сброшен каждый элемент
-	const [containerItems, setContainerItems] = useState<Record<UniqueIdentifier, UniqueIdentifier | null>>(
-		droppableContainers.reduce((acc, id) => ({ ...acc, [id]: null }), {}),
-	)
+		// Удаляем активный item из всех контейнеров временно
+		const id = event.active.id as string
 
-	const handleDragEnd = (event: DragEndEvent) => {
-		const { active, over } = event
-		console.log('Актив ', active)
-		console.log('Овер ', over)
+		setAvailableItems(prev => prev.filter(item => item !== id))
 
-		// Если перетащили не на контейнер - сбрасываем элемент
-		if (!over || !droppableContainers.includes(over.id)) {
-			// Освобождаем контейнер, если элемент был в каком-то контейнере
-			setContainerItems(prev =>
-				Object.fromEntries(
-					Object.entries(prev).map(([containerID, itemID]) => [containerID, itemID == active.id ? null : itemID]),
-				),
-			)
-			return
-		}
-
-		// Если контейнер уже занят - ничего не делаем
-		// if (containerItems[over.id] !== active.id) {
-		// 	// Освобождаем контейнер, если элемент был в каком-то контейнере
-		// 	setContainerItems(prev => ({ ...prev, [over.id]: active.id }))
-		// }
-
-		// Освобождаем предыдущий контейнер, если элемент уже был в каком-то контейнере
 		setContainerItems(prev => {
 			const newState = { ...prev }
-			for (const containerId in newState) {
-				if (newState[containerId] === active.id) {
-					newState[containerId] = null
+			for (const key in newState) {
+				if (newState[key] === id) {
+					newState[key] = null
 				}
 			}
-			// Занимаем новый контейнер
-			newState[over.id] = active.id
 			return newState
 		})
 	}
 
-	const availableItems = draggableItems.filter(itemId => !Object.values(containerItems).includes(itemId))
+	function handleDragEnd(event: DragEndEvent) {
+		const { active, over } = event
+		setActiveId(null)
+
+		// Если перетащили в пустоту - возвращаем элемент в главный контейнер
+		if (!over || !nouns.includes(over.id.toString())) {
+			setAvailableItems(prev => [...prev, active.id.toString()])
+			return
+		}
+
+		const activeId = active.id as string
+		const overId = over.id as string
+
+		// Если возвращаем в главный контейнер
+		if (overId === 'available') {
+			if (!availableItems.includes(activeId)) {
+				setAvailableItems(prev => [...prev, activeId])
+			}
+			return
+		}
+
+		const prevId = containerItems[overId]
+
+		// Перетаскиваем в новый контейнер, если в нем был элемент, возвращаем его в главный
+		setContainerItems(prev => {
+			const newState = { ...prev }
+			newState[overId] = activeId
+			return newState
+		})
+
+		if (prevId) {
+			setAvailableItems(prev => [...prev, prevId])
+		}
+	}
 
 	return (
-		<div className="p-4 flex gap-2">
-			<DndContext onDragEnd={handleDragEnd}>
-				{/* Отображаем draggable элементы, которые еще не в контейнерах */}
-				<div className="flex gap-4 mb-4">
-					<SortableContext items={draggableItems}>
-						<Droppable id="adj">
-							{availableItems.map(id => (
-								<Draggable key={id} id={id}>
-									Элемент {id}
-								</Draggable>
-							))}
-						</Droppable>
-					</SortableContext>
-				</div>
+		<DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+			<div className="flex md:flex-col md:gap-y-10 gap-4 justify-center items-center">
+				{/* Первая колонка: доступные элементы */}
+				<SortableContainer id="available" items={availableItems} />
 
-				{/* Области для сброса */}
-				<div className="flex gap-4">
-					<Droppable id="mat">
-						{droppableContainers.map(containerId => (
-							<Droppable key={containerId} id={containerId.toString()}>
-								{containerItems[containerId] ? (
-									<>
-										<span className="text-gray-500">Drop here</span>
-										<Draggable key={containerItems[containerId]} id={containerItems[containerId]!}>
-											Элемент {containerItems[containerId]}
-										</Draggable>
-									</>
-								) : (
-									<span className="text-gray-500">Drop here</span>
-								)}
-							</Droppable>
-						))}
-					</Droppable>
-				</div>
-			</DndContext>
-		</div>
-	)
-
-	return (
-		<div className="flex gap-8 h-full min-h-[400px]">
-			<DndContext
-				collisionDetection={closestCorners}
-				onDragEnd={onDragEnd}
-				onDragStart={({ active }) => setActive(active)}
-				onDragCancel={() => setActive(null)}>
-				{/* Колонка с прилагательными */}
-				<SortableContext items={adjectives} strategy={verticalListSortingStrategy}>
-					<div className="space-y-4">
-						{adjectives.map(card => (
-							<SortableCard key={card.id} card={card} />
-						))}
-					</div>
-				</SortableContext>
-				<div className="w-40 bg-gray-100 p-4 rounded-lg">
-					<h3 className="font-bold mb-4">Прилагательные</h3>
-				</div>
-
-				{Array.from({ length: 5 }).map((_, index) => (
-					<DropZone key={index} id={`match-${index}`} position={index} activeId={active?.id}>
-						{matches.find(c => c.position === index) && <SortableCard card={matches.find(c => c.position === index)!} />}
-					</DropZone>
-				))}
-				{/* Колонка для сопоставления */}
-				<div className="w-40 bg-blue-50 p-4 rounded-lg">
-					<h3 className="font-bold mb-4">Соответствия</h3>
-					<div className="space-y-4"></div>
-				</div>
-			</DndContext>
-
-			{/* Колонка с существительными */}
-			<div className="w-40 bg-gray-100 p-4 rounded-lg">
-				<h3 className="font-bold mb-4">Существительные</h3>
-				<div className="space-y-4">
-					{nouns.map(card => (
-						<div key={card.id} className="bg-white p-3 rounded shadow">
-							{card.word}
-						</div>
+				{/* Остальные контейнеры */}
+				<div className="flex flex-col md:flex-row gap-2 md:items-end">
+					{nouns.map(noun => (
+						<SortableContainer key={noun} id={noun} word={noun} items={containerItems[noun] ? [containerItems[noun]!] : []} />
 					))}
 				</div>
+
+				<DragOverlay>{activeId ? <SortableCard id={activeId} word={activeId} overlay /> : null}</DragOverlay>
 			</div>
-		</div>
+		</DndContext>
 	)
 }

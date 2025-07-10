@@ -1,72 +1,38 @@
-import type { Card } from '../types/card'
-import GameCard from './GameCard'
-
-type ResultPhaseProps = {
-	nouns: Card[]
-	leaderAdjectives: Card[]
-	playerAdjectives: Card[]
-	leaderOrder: number[]
-	playerOrder: number[]
+interface ResultPhaseProps {
+	leaderPairs: [string, string][]
+	playerPairs: [string, string][]
 	onNextRound: () => void
 }
 
-export default function ResultPhase({
-	nouns,
-	leaderAdjectives,
-	playerAdjectives,
-	leaderOrder,
-	playerOrder,
-	onNextRound,
-}: ResultPhaseProps) {
-	// Подсчёт правильных ответов
-	const correctMatches = leaderOrder.reduce((acc, leaderPos, index) => {
-		return acc + (leaderPos === playerOrder[index] ? 1 : 0)
-	}, 0)
+export default function ResultPhase({ leaderPairs, playerPairs, onNextRound }: ResultPhaseProps) {
+	const getPlayerAdjective = (noun: string): string | null => {
+		const match = playerPairs.find(([pNoun]) => pNoun === noun)
+		return match ? match[1] : null
+	}
 
 	return (
-		<div className="text-center">
-			<h2 className="text-2xl font-bold mb-6">Результаты раунда</h2>
-			<div className="mb-8">
-				<p className="text-xl">
-					Правильных совпадений: <span className="font-bold">{correctMatches} из 5</span>
-				</p>
-			</div>
-
-			<div className="flex justify-center gap-8 mb-10">
-				{nouns.map((noun, index) => {
-					const leaderAdj = {
-						...leaderAdjectives[leaderOrder[index]],
-						isOpen: true, // Принудительно открываем
-					}
-					const playerAdj = {
-						...playerAdjectives[playerOrder[index]],
-						isOpen: true, // Принудительно открываем
-					}
-					const isCorrect = leaderOrder[index] === playerOrder[index]
+		<div className="space-y-8 text-center">
+			<div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+				{leaderPairs.map(([noun, adjective]) => {
+					const playerAdj = getPlayerAdjective(noun)
+					const isCorrect = playerAdj === adjective
 
 					return (
-						<div key={noun.id} className="flex flex-col items-center gap-4">
-							<GameCard card={noun} />
-							<div className="relative">
-								<GameCard card={{ ...leaderAdj }} />
-								<div
-									className={`absolute -right-3 -top-3 w-6 h-6 rounded-full flex items-center justify-center text-white ${
-										isCorrect ? 'bg-green-500' : 'bg-red-500'
-									}`}>
-									{isCorrect ? '✓' : '✗'}
-								</div>
-							</div>
-							<div className="text-sm">
-								Ваш выбор: <span className="font-medium">{playerAdj.word}</span>
-							</div>
+						<div
+							key={noun}
+							className={`p-4 rounded-xl border text-lg font-medium flex justify-between items-center
+								${isCorrect ? 'border-green-500 bg-green-100 text-green-800' : 'border-red-500 bg-red-100 text-red-800'}`}>
+							<span>{noun}</span>
+							<span className="text-xl flex flex-col">
+								{!isCorrect && playerAdj ? <s className="mr-2 opacity-70">{playerAdj}</s> : null}
+								{adjective}
+							</span>
 						</div>
 					)
 				})}
 			</div>
 
-			<button
-				onClick={onNextRound}
-				className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+			<button onClick={onNextRound} className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg">
 				Следующий раунд
 			</button>
 		</div>
